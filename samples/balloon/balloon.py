@@ -327,11 +327,11 @@ if __name__ == '__main__':
 
     # Create model
     if args.command == "train":
-        model = modellib.MaskRCNN(mode="training", config=config,
-                                  model_dir=args.logs)
+        my_model = modellib.MaskRCNN(mode="training", config=config,
+                                     model_dir=args.logs)
     else:
-        model = modellib.MaskRCNN(mode="inference", config=config,
-                                  model_dir=args.logs)
+        my_model = modellib.MaskRCNN(mode="inference", config=config,
+                                     model_dir=args.logs)
 
     # Select weights file to load
     if args.weights.lower() == "coco":
@@ -341,10 +341,10 @@ if __name__ == '__main__':
             utils.download_trained_weights(weights_path)
     elif args.weights.lower() == "last":
         # Find last trained weights
-        weights_path = model.find_last()
+        weights_path = my_model.find_last()
     elif args.weights.lower() == "imagenet":
         # Start from ImageNet trained weights
-        weights_path = model.get_imagenet_weights()
+        weights_path = my_model.get_imagenet_weights()
     else:
         weights_path = args.weights
 
@@ -353,17 +353,17 @@ if __name__ == '__main__':
     if args.weights.lower() == "coco":
         # Exclude the last layers because they require a matching
         # number of classes
-        model.load_weights(weights_path, by_name=True, exclude=[
+        my_model.load_weights(weights_path, by_name=True, exclude=[
             "mrcnn_class_logits", "mrcnn_bbox_fc",
             "mrcnn_bbox", "mrcnn_mask"])
     else:
-        model.load_weights(weights_path, by_name=True)
+        my_model.load_weights(weights_path, by_name=True)
 
     # Train or evaluate
     if args.command == "train":
-        train(model)
+        train(my_model)
     elif args.command == "splash":
-        detect_and_color_splash(model, image_path=args.image,
+        detect_and_color_splash(my_model, image_path=args.image,
                                 video_path=args.video)
     else:
         print("'{}' is not recognized. "

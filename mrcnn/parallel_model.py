@@ -153,20 +153,20 @@ if __name__ == "__main__":
 
     # Build data generator and model
     datagen = ImageDataGenerator()
-    model = build_model(x_train, 10)
+    my_model = build_model(x_train, 10)
 
     # Add multi-GPU support.
-    model = ParallelModel(model, GPU_COUNT)
+    my_model = ParallelModel(my_model, GPU_COUNT)
 
     optimizer = keras.optimizers.SGD(lr=0.01, momentum=0.9, clipnorm=5.0)
 
-    model.compile(loss='sparse_categorical_crossentropy',
-                  optimizer=optimizer, metrics=['accuracy'])
+    my_model.compile(loss='sparse_categorical_crossentropy',
+                     optimizer=optimizer, metrics=['accuracy'])
 
-    model.summary()
+    my_model.summary()
 
     # Train
-    model.fit_generator(
+    my_model.fit_generator(
         datagen.flow(x_train, y_train, batch_size=64),
         steps_per_epoch=50, epochs=10, verbose=1,
         validation_data=(x_test, y_test),

@@ -80,11 +80,11 @@ if __name__ == '__main__':
     config = InferenceConfig()
     config.display()
 
-    model = modellib.MaskRCNN(
+    my_model = modellib.MaskRCNN(
         mode='inference', model_dir=MODEL_DIR, config=config
     )
 
-    model.load_weights(COCO_MODEL_PATH, by_name=True)
+    my_model.load_weights(COCO_MODEL_PATH, by_name=True)
 
     # COCO Class names
     # Index of the class in the list is its ID. For example, to get ID of
@@ -109,7 +109,7 @@ if __name__ == '__main__':
 
     while True:
         ret, frame = cap.read()
-        results = model.detect([frame], verbose=0)
+        results = my_model.detect([frame], verbose=0)
         r = results[0]
 
         frame = display_instances(

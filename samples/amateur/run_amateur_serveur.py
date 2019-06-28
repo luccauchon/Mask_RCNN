@@ -18,12 +18,12 @@ keras.backend.tensorflow_backend.set_session(get_session())
 
 os.environ['basedir_a'] = 'F:/Temp2/'
 import PIL as PIL
-import luccauchon.data.__MYENV__ as E
 import logging
 import mrcnn.model as modellib
 import numpy as np
 import scipy as scipy
 import time
+import luccauchon.data.__MYENV__ as E  # Charge en mémoire des variables d'environnement.
 
 E.APPLICATION_LOG_LEVEL = logging.DEBUG
 log = E.setup_logger(logger_name=__name__, _level=E.APPLICATION_LOG_LEVEL)
@@ -31,6 +31,7 @@ log = E.setup_logger(logger_name=__name__, _level=E.APPLICATION_LOG_LEVEL)
 # Root directory of the project
 ROOT_DIR = os.path.abspath("../../")
 MODEL_DIR = 'F:/AMATEUR/models_mask_rcnn/hq20190528T1316/'
+MODEL_DIR = 'F:/AMATEUR/models_mask_rcnn/hq20190613T1330/'
 
 import flask
 import io
@@ -96,6 +97,7 @@ class TestClass:
 
         # Get path to saved weights
         model_path = MODEL_DIR + '/mask_rcnn_hq_0044.h5'
+        model_path = MODEL_DIR + '/mask_rcnn_hq_0098.h5'
 
         # Load trained weights
         self.model.load_weights(model_path, by_name=True)

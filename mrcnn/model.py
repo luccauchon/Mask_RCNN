@@ -2353,7 +2353,7 @@ class MaskRCNN():
             keras.callbacks.TensorBoard(log_dir=self.log_dir,
                                         histogram_freq=0, write_graph=True, write_images=False),
             keras.callbacks.ModelCheckpoint(self.checkpoint_path,
-                                            verbose=0, save_weights_only=True),
+                                            verbose=0, save_weights_only=False),
         ]
 
         # Add custom callbacks to the list
@@ -2372,7 +2372,7 @@ class MaskRCNN():
         if os.name is 'nt':
             workers = 0
         else:
-            workers = multiprocessing.cpu_count()-4
+            workers = multiprocessing.cpu_count() / 2
             assert workers >= 0
         self.keras_model.fit_generator(
             train_generator,

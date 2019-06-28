@@ -451,27 +451,27 @@ if __name__ == '__main__':
 
     # Create model
     if args.command == "train":
-        model = modellib.MaskRCNN(mode="training", config=config,
-                                  model_dir=args.logs)
+        my_model = modellib.MaskRCNN(mode="training", config=config,
+                                     model_dir=args.logs)
     else:
-        model = modellib.MaskRCNN(mode="inference", config=config,
-                                  model_dir=args.logs)
+        my_model = modellib.MaskRCNN(mode="inference", config=config,
+                                     model_dir=args.logs)
 
     # Select weights file to load
     if args.model.lower() == "coco":
         model_path = COCO_MODEL_PATH
     elif args.model.lower() == "last":
         # Find last trained weights
-        model_path = model.find_last()
+        model_path = my_model.find_last()
     elif args.model.lower() == "imagenet":
         # Start from ImageNet trained weights
-        model_path = model.get_imagenet_weights()
+        model_path = my_model.get_imagenet_weights()
     else:
         model_path = args.model
 
     # Load weights
     print("Loading weights ", model_path)
-    model.load_weights(model_path, by_name=True)
+    my_model.load_weights(model_path, by_name=True)
 
     # Train or evaluate
     if args.command == "train":
@@ -497,29 +497,29 @@ if __name__ == '__main__':
 
         # Training - Stage 1
         print("Training network heads")
-        model.train(dataset_train, dataset_val,
-                    learning_rate=config.LEARNING_RATE,
-                    epochs=40,
-                    layers='heads',
-                    augmentation=augmentation)
+        my_model.train(dataset_train, dataset_val,
+                       learning_rate=config.LEARNING_RATE,
+                       epochs=40,
+                       layers='heads',
+                       augmentation=augmentation)
 
         # Training - Stage 2
         # Finetune layers from ResNet stage 4 and up
         print("Fine tune Resnet stage 4 and up")
-        model.train(dataset_train, dataset_val,
-                    learning_rate=config.LEARNING_RATE,
-                    epochs=120,
-                    layers='4+',
-                    augmentation=augmentation)
+        my_model.train(dataset_train, dataset_val,
+                       learning_rate=config.LEARNING_RATE,
+                       epochs=120,
+                       layers='4+',
+                       augmentation=augmentation)
 
         # Training - Stage 3
         # Fine tune all layers
         print("Fine tune all layers")
-        model.train(dataset_train, dataset_val,
-                    learning_rate=config.LEARNING_RATE / 10,
-                    epochs=160,
-                    layers='all',
-                    augmentation=augmentation)
+        my_model.train(dataset_train, dataset_val,
+                       learning_rate=config.LEARNING_RATE / 10,
+                       epochs=160,
+                       layers='all',
+                       augmentation=augmentation)
 
     elif args.command == "evaluate":
         # Validation dataset
@@ -528,7 +528,7 @@ if __name__ == '__main__':
         coco = dataset_val.load_coco(args.dataset, val_type, year=args.year, return_coco=True, auto_download=args.download)
         dataset_val.prepare()
         print("Running COCO evaluation on {} images.".format(args.limit))
-        evaluate_coco(model, dataset_val, coco, "bbox", limit=int(args.limit))
+        evaluate_coco(my_model, dataset_val, coco, "bbox", limit=int(args.limit))
     else:
         print("'{}' is not recognized. "
               "Use 'train' or 'evaluate'".format(args.command))
