@@ -2286,8 +2286,12 @@ class MaskRCNN():
         self.checkpoint_path = self.checkpoint_path.replace(
             "*epoch*", "{epoch:04d}")
 
+    def train_get_data_generator(self, train_dataset, augmentation=None, no_augmentation_sources=None):
+        return data_generator(train_dataset, self.config, shuffle=True, augmentation=augmentation, batch_size=self.config.BATCH_SIZE,
+                              no_augmentation_sources=no_augmentation_sources)
+
     def train(self, train_dataset, val_dataset, learning_rate, epochs, layers,
-              augmentation=None, custom_callbacks=None, no_augmentation_sources=None):
+              augmentation=None, custom_callbacks=None, no_augmentation_sources=None, model_check_point=True):
         """Train the model.
         train_dataset, val_dataset: Training and validation Dataset objects.
         learning_rate: The learning rate to train with
@@ -2349,12 +2353,12 @@ class MaskRCNN():
             os.makedirs(self.log_dir)
 
         # Callbacks
-        callbacks = [
-            keras.callbacks.TensorBoard(log_dir=self.log_dir,
-                                        histogram_freq=0, write_graph=True, write_images=False),
-            keras.callbacks.ModelCheckpoint(self.checkpoint_path,
-                                            verbose=0, save_weights_only=False),
-        ]
+        callbacks = []
+        if model_check_point:
+            callbacks += [
+                keras.callbacks.TensorBoard(log_dir=self.log_dir, histogram_freq=0, write_graph=True, write_images=False),
+                keras.callbacks.ModelCheckpoint(self.checkpoint_path, verbose=1, save_weights_only=True)
+            ]
 
         # Add custom callbacks to the list
         if custom_callbacks:
@@ -2363,7 +2367,7 @@ class MaskRCNN():
         # Train
         log("\nStarting at epoch {}. LR={}\n".format(self.epoch, learning_rate))
         log("Checkpoint Path: {}".format(self.checkpoint_path))
-        self.set_trainable(layers)
+        self.set_trainable(layers, verbose=0)
         self.compile(learning_rate, self.config.LEARNING_MOMENTUM)
 
         # Work-around for Windows: Keras fails on Windows when using
@@ -2372,7 +2376,8 @@ class MaskRCNN():
         if os.name is 'nt':
             workers = 0
         else:
-            workers = 16
+            assert os.environ["APPRANTI_NB_WORKERS"] is not None
+            workers = int(os.environ["APPRANTI_NB_WORKERS"])
             assert workers >= 0
         self.keras_model.fit_generator(
             train_generator,

@@ -1,0 +1,1 @@
+ python appranti.py --logs=/gpfs/home/cj3272/appranti/cj3272/Mask_RCNN/logs_appranti/ --dataset=/gpfs/home/cj3272/appranti/cj3272/dataset/Dataset_COCO_Appranti/ --model=None train

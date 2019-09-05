@@ -242,3 +242,19 @@ class Config(object):
             if not a.startswith("__") and not callable(getattr(self, a)):
                 print("{:30} {}".format(a, getattr(self, a)))
         print("\n")
+
+    def display_in_str(self):
+        """Display Configuration values."""
+        result = "\nConfigurations:\n"
+        for a in dir(self):
+            if not a.startswith("__") and not callable(getattr(self, a)):
+                result += ("{:30} {}".format(a, getattr(self, a)) + '\n')
+        result += "\n"
+        return result
+
+    def get_parameters(self):
+        result = {}
+        for a in dir(self):
+            if not a.startswith("__") and not callable(getattr(self, a)):
+                result.update({a:str(getattr(self, a))})
+        return result
