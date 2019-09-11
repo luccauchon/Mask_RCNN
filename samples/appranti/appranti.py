@@ -48,6 +48,9 @@ from mrcnn import model as modellib, utils, visualize
 from pathlib import Path
 import cv2 as cv2
 
+# from keras.models import load_model
+# from tta_wrapper import tta_segmentation
+
 logger.debug('Numpy: ' + str(np.__version__))
 logger.debug('Tensorflow: ' + str(tf.__version__))
 logger.debug('keras.__version__=' + str(keras.__version__))
@@ -67,8 +70,8 @@ class ApprantiConfig(Config):
     NUM_CLASSES = 1 + 1
     LOSS_WEIGHTS = {"rpn_class_loss": 1., "rpn_bbox_loss": 1., "mrcnn_class_loss": 1., "mrcnn_bbox_loss": 1., "mrcnn_mask_loss": 1.}
     IMAGE_RESIZE_MODE = "square"
-    IMAGE_MIN_DIM = 640
-    IMAGE_MAX_DIM = 640
+    IMAGE_MIN_DIM = 800
+    IMAGE_MAX_DIM = 1024
     USE_MINI_MASK = True
 
 
@@ -238,7 +241,7 @@ def evaluate(args_):
 ############################################################
 #  Training
 ############################################################
-def train(args_, model, config, is_mlflow=False, run_name=None, overfit=False):
+def train(args_, model, config, is_mlflow=False, run_name=None, overfit=False, train_strategy='A'):
     dataset_train = ApprantiDataset()
     dataset_train.load_appranti(dataset_dir=args_.dataset, subset="train", year=args_.year, class_ids=None, config=config, limit_number_images=(1 if overfit else None))
     dataset_train.prepare()
@@ -258,9 +261,9 @@ def train(args_, model, config, is_mlflow=False, run_name=None, overfit=False):
                 an_image = visualize.display_instances(image, bbox, mask, class_ids, dataset.class_names, show_bbox=False, only_return_image=True)
                 cv2.imwrite(output_dir + str(image_id) + '.jpg', an_image)
 
-    config.STEPS_PER_EPOCH = 500
+    config.STEPS_PER_EPOCH = 2 * (int(len(dataset_train.image_ids) / config.IMAGES_PER_GPU) + 1)
     assert config.STEPS_PER_EPOCH * config.IMAGES_PER_GPU >= len(dataset_train.image_ids)
-    config.VALIDATION_STEPS = 100
+    config.VALIDATION_STEPS = int(len(dataset_val.image_ids) / config.IMAGES_PER_GPU) + 1
     assert config.VALIDATION_STEPS * config.IMAGES_PER_GPU >= len(dataset_val.image_ids)
 
     custom_callbacks = [
@@ -274,7 +277,7 @@ def train(args_, model, config, is_mlflow=False, run_name=None, overfit=False):
     if is_mlflow:
         mlflow.start_run(run_name=run_name)
         mlflow.log_params(
-            {'model_dir': str(model.log_dir), 'n_train': str(len(dataset_train.image_ids)), 'n_val': str(len(dataset_val.image_ids)), 'os': os.name, 'dataset': 'appranti',
+            {'model_dir': str(model.log_dir), 'n_train': str(len(dataset_train.image_ids)), 'n_val': str(len(dataset_val.image_ids)), 'os': os.name, 'dataset': args_.dataset,
              'CUDA_VISIBLE_DEVICES': os.environ["CUDA_VISIBLE_DEVICES"], 'class_names': str(dataset_train.class_names), 'init_with_model': str(args_.model)})
         mlflow.log_params(config.get_parameters())
 
@@ -285,20 +288,31 @@ def train(args_, model, config, is_mlflow=False, run_name=None, overfit=False):
 
         custom_callbacks.append(keras.callbacks.LambdaCallback(on_epoch_end=lambda epoch, logs: my_log_func(epoch, logs)))
 
-    logger.debug("Training network heads")
-    epoch = 40
-    model.train(dataset_train, dataset_val, learning_rate=config.LEARNING_RATE, epochs=epoch, layers='heads', augmentation=None, custom_callbacks=custom_callbacks,
-                model_check_point=(False if overfit else True))
+    model_check_point = False if overfit else True
+    if is_mlflow:
+        mlflow.log_param('train_strategy', train_strategy)
 
-    logger.debug("Fine tune Resnet stage 4 and up")
-    epoch = 120
-    model.train(dataset_train, dataset_val, learning_rate=config.LEARNING_RATE, epochs=epoch, layers='4+', augmentation=None, custom_callbacks=custom_callbacks,
-                model_check_point=(False if overfit else True))
+    if 'A' == train_strategy:
+        # Strategy A
+        logger.debug("Training network heads")
+        epoch = 40
+        model.train(dataset_train, dataset_val, learning_rate=config.LEARNING_RATE, epochs=epoch, layers='heads', augmentation=None, custom_callbacks=custom_callbacks,
+                    model_check_point=model_check_point)
 
-    logger.debug("Fine tune all layers")
-    epoch = 160 + 250
-    model.train(dataset_train, dataset_val, learning_rate=config.LEARNING_RATE / 10, epochs=epoch, layers='all', augmentation=None, custom_callbacks=custom_callbacks,
-                model_check_point=(False if overfit else True))
+        logger.debug("Fine tune Resnet stage 4 and up")
+        epoch = 120
+        model.train(dataset_train, dataset_val, learning_rate=config.LEARNING_RATE, epochs=epoch, layers='4+', augmentation=None, custom_callbacks=custom_callbacks,
+                    model_check_point=model_check_point)
+
+        logger.debug("Fine tune all layers")
+        epoch = 160 + 250
+        model.train(dataset_train, dataset_val, learning_rate=config.LEARNING_RATE / 10, epochs=epoch, layers='all', augmentation=None, custom_callbacks=custom_callbacks,
+                    model_check_point=model_check_point)
+
+    if 'B' == train_strategy:
+        epoch = 350
+        model.train(dataset_train, dataset_val, learning_rate=config.LEARNING_RATE, epochs=epoch, layers='all', augmentation=None, custom_callbacks=custom_callbacks,
+                    model_check_point=model_check_point)
 
 
 ############################################################
@@ -365,8 +379,9 @@ def start(args_):
 
     # Train or evaluate
     if 'train' in args_.command:
-        train(args_=args_, model=my_model, config=config, is_mlflow=is_mlflow, run_name=run_name, overfit=(True if 'overfit' in args_.command else False))
-    elif args_.command == "evaluate":
+        train(args_=args_, model=my_model, config=config, is_mlflow=is_mlflow, run_name=run_name, overfit=(True if 'overfit' in args_.command else False),
+              train_strategy=args_.train_strategy)
+    elif 'inference' in args_.command:
         evaluate(args_=args_)
     else:
         assert False
@@ -377,13 +392,14 @@ if __name__ == '__main__':
 
     # Parse command line arguments
     parser = argparse.ArgumentParser(description='Train Mask R-CNN on Appranti Dataset.')
-    parser.add_argument("command", metavar="<command>", help="'train','train_overfit','evaluate'")
+    parser.add_argument("command", metavar="<command>", help="'train','train_overfit','inference','inference_tta'")
     parser.add_argument('--dataset', required=True, metavar="/path/to/coco/", help='Directory of the Appranti dataset')
     parser.add_argument('--year', required=False, default=2019, metavar="<year>", help='Year of the Appranti dataset (2019 or ...) (default=2019)')
     parser.add_argument('--model', required=True, metavar="/path/to/weights.h5", help="'coco', 'last' or 'imagenet'")
     parser.add_argument('--logs', required=False, default=os.path.join(ROOT_DIR, "logs_appranti"), metavar="/path/to/logs/", help='Logs and checkpoints directory (default=logs/)')
     parser.add_argument('--eyes_of_the_net', required=False, help='Vizualization of tensors given to the net')
     parser.add_argument('--run_name', required=True, metavar="rn_MaskRCNN", help='the run name for mlflow')
+    parser.add_argument('--train_strategy', required=False, metavar="train_strategy", help='training loop')
 
     args = parser.parse_args()
 
